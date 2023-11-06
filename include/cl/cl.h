@@ -170,10 +170,31 @@ struct Value {
 };
 
 struct Info {
+    static constexpr char PATH_SEPARATOR =
+#if defined(_WIN32)
+        '\\';
+#else
+        '/';
+#endif
+
     std::string_view display;
     std::string_view description;
     std::string_view name{"program"};
     std::string_view version;
+
+    std::string_view fullpath;
+    std::string_view executable;
+    std::string_view path;
+
+    Info() = default;
+
+    explicit Info(std::string_view displ, std::string_view descr,
+                  std::string_view n, std::string_view v) {
+        display = displ;
+        description = descr;
+        name = n;
+        version = v;
+    }
 
     [[nodiscard]] bool has_header() const {
         return !display.empty() || !version.empty() || !description.empty();
@@ -512,6 +533,19 @@ inline Values parse(int argc, char** argv) {
         return {};
     }
 
+    impl::info.fullpath = argv[0];
+
+    if(!impl::info.fullpath.empty()) {
+        size_t idx = impl::info.fullpath.rfind(impl::Info::PATH_SEPARATOR);
+
+        if(idx != std::string_view::npos) {
+            impl::info.path = impl::info.fullpath.substr(0, idx);
+            impl::info.executable = impl::info.fullpath.substr(idx + 1);
+        }
+        else
+            impl::error_and_exit("Cannot parse executable path");
+    }
+
     std::string_view c = argv[1];
 
     if(argc == 2) {
@@ -626,5 +660,9 @@ inline Values parse(int argc, char** argv) {
 
     impl::print_and_exit("Unknown command '", c, "'");
 }
+
+inline std::string_view full_path() { return impl::info.fullpath; }
+inline std::string_view path() { return impl::info.path; }
+inline std::string_view executable() { return impl::info.executable; }
 
 } // namespace cl
