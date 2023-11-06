@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
@@ -143,6 +144,25 @@ struct Value {
         return std::get<std::string_view>(v);
     }
 
+    template<typename T>
+    bool operator==(T rhs) const {
+        using U = std::decay_t<T>;
+
+        if constexpr(std::is_convertible_v<U, std::string_view>)
+            return this->is_string() && this->to_string() == rhs;
+        else if constexpr(std::is_same_v<U, bool>)
+            return this->is_bool() && this->to_bool() == rhs;
+        else if constexpr(std::is_convertible_v<U, int>)
+            return this->is_int() && this->to_int() == rhs;
+        else
+            static_assert(Value::always_false_v<U>);
+    }
+
+    template<typename T>
+    bool operator!=(T rhs) const {
+        return !this->operator==(rhs);
+    }
+
     [[nodiscard]] std::string dump() const {
         return std::visit(
             [](auto& x) -> std::string {
@@ -163,7 +183,7 @@ struct Value {
     }
 
     explicit operator bool() const {
-        return std::holds_alternative<std::monostate>(v);
+        return !std::holds_alternative<std::monostate>(v);
     }
 
     std::variant<std::monostate, bool, int, std::string_view> v;
