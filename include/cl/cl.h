@@ -19,6 +19,16 @@ inline bool help_on_exit = true;
 
 namespace impl {
 
+inline std::string_view strip_dash(std::string_view v) {
+    for(size_t i = 0; !v.empty() && i < 2; i++) {
+        if(v.front() != '-')
+            break;
+        v = v.substr(1);
+    }
+
+    return v;
+}
+
 template<typename... Args>
 [[noreturn]] inline void error_and_exit(Args&&... args);
 
@@ -44,39 +54,35 @@ template<typename... Args>
     std::exit(2);
 }
 
+struct OptArg {
+    OptArg(const char* n): val{n}, flag{true} {}; // NOLINT
+    OptArg(std::string_view n, bool f): val{n}, flag{f} {}
+
+    std::string_view val;
+    bool flag;
+};
+
 struct Option {
     std::string_view shortname;
-    std::string_view fullname;
     std::string_view name;
     std::string_view description;
     bool flag;
 
-    explicit Option(std::string_view s, std::string_view n,
+    explicit Option(std::string_view s, const OptArg& n,
                     std::string_view d = {})
-        : shortname{s}, fullname{n}, name{Option::get_name(fullname, flag)},
-          description{d} {
-        if(n.empty())
+        : shortname{s}, name{n.val}, flag{n.flag}, description{d} {
+        if(name.empty())
             impl::print_and_exit("Option name is empty");
     }
 
-    explicit Option(std::string_view n, std::string_view d = {})
-        : fullname{n}, name{Option::get_name(fullname, flag)}, description{d} {
-        if(n.empty())
+    explicit Option(const OptArg& n, std::string_view d = {})
+        : name{n.val}, flag{n.flag}, description{d} {
+        if(name.empty())
             impl::print_and_exit("Option name is empty");
     };
 
-    static std::string_view get_name(std::string_view fn, bool& flag) {
-        flag = false;
-        for(size_t i = 0; i < fn.size(); i++) {
-            if(fn[i] == '=')
-                return fn.substr(0, i);
-        }
-        flag = true;
-        return fn;
-    }
-
     [[nodiscard]] size_t columns() const {
-        return shortname.size() + fullname.size();
+        return shortname.size() + name.size() + 4;
     }
 };
 
@@ -248,12 +254,9 @@ struct Options {
                               impl::Option{"-h", "--help", "Show this screen"});
 
         for(const impl::Option& o : Options::items) {
-            std::string_view n = Options::get_name(o.name);
-            std::string_view s = Options::get_name(o.shortname);
-
-            if(Options::valid.count(n))
+            if(Options::valid.count(o.name))
                 impl::print_and_exit("Duplicate Option '", o.name, "'");
-            else if(Options::valid.count(s))
+            else if(Options::valid.count(o.shortname))
                 impl::print_and_exit("Duplicate Short Option '", o.shortname,
                                      "'");
 
@@ -261,36 +264,37 @@ struct Options {
             if(len > Options::maxlength)
                 Options::maxlength = len + 2;
 
-            Options::valid.insert(n);
-            Options::valid.insert(s);
+            Options::valid.insert(o.name);
+            Options::valid.insert(o.shortname);
         }
     }
 
-    static std::string_view get_value(std::string_view arg) {
-        bool found = false;
+    static std::pair<std::string_view, std::string_view>
+    parse(std::string_view arg) {
+        std::pair<std::string_view, std::string_view> res{impl::strip_dash(arg),
+                                                          {}};
 
         for(size_t i = 0; i < arg.size(); i++) {
             if(arg[i] != '=')
                 continue;
-            arg = arg.substr(i + 1);
-            found = true;
+
+            res.first = impl::strip_dash(arg.substr(0, i));
+            if(i + 1 < arg.size())
+                res.second = arg.substr(i + 1);
             break;
         }
 
-        if(!found)
-            impl::error_and_exit("Invalid option format '", arg, "'");
-        return arg;
+        return res;
     }
 
     static std::optional<impl::Option> get_option(std::string_view arg) {
-        arg = Options::get_name(arg);
-        size_t i = 0;
+        if(arg.size() < 2)
+            return std::nullopt;
 
-        for(; i < Options::items.size(); i++) {
-            const impl::Option& o = Options::items[i];
-            if(arg == Options::get_name(o.shortname))
+        for(const impl::Option& o : Options::items) {
+            if(arg == o.shortname)
                 return o;
-            if(arg == Options::get_name(o.name))
+            if(arg == o.name)
                 return o;
         }
 
@@ -308,23 +312,6 @@ struct Options {
         }
 
         return isshort;
-    }
-
-    static std::string_view get_name(std::string_view n) {
-        for(size_t i = 0; i < 2; i++) {
-            if(!n.empty() && n.front() == '-') {
-                n = n.substr(1);
-            }
-        }
-
-        for(size_t i = 0; i < n.size(); i++) {
-            if(n[i] != '=')
-                continue;
-            n = n.substr(0, i);
-            break;
-        }
-
-        return n;
     }
 
     static void check(const impl::Arg& opt) {
@@ -389,6 +376,10 @@ inline impl::Arg operator""__(const char* arg, std::size_t len) {
     return impl::Arg{std::string_view{arg, len}};
 }
 
+inline impl::OptArg operator""_arg(const char* arg, std::size_t len) {
+    return impl::OptArg{std::string_view{arg, len}, false};
+}
+
 } // namespace string_literals
 
 struct Usage {
@@ -404,9 +395,13 @@ struct ArgPrinter {
     static std::string dump(const Arg& arg) {
         if(arg.option) {
             auto opt = Options::get_option(arg.val);
-            if(opt)
-                return std::string{opt->fullname};
-            impl::abort();
+            if(!opt)
+                impl::abort();
+
+            std::string res{opt->name};
+            if(!opt->flag)
+                res += "=ARG";
+            return res;
         }
 
         return std::string{arg.val};
@@ -550,12 +545,12 @@ impl::Cmd cmd(std::string_view c, Args&&... args) {
     return (impl::Cmd{c}, ..., args);
 }
 
-inline impl::Option opt(std::string_view s, std::string_view l,
+inline impl::Option opt(std::string_view s, impl::OptArg l,
                         std::string_view d = {}) {
     return impl::Option{s, l, d};
 }
 
-inline impl::Option opt(std::string_view l, std::string_view d = {}) {
+inline impl::Option opt(impl::OptArg l, std::string_view d = {}) {
     return impl::Option{{}, l, d};
 }
 
@@ -601,11 +596,11 @@ inline Values parse(int argc, char** argv) {
         std::string_view arg{argv[i]};
 
         if(arg.front() == '-') {
-            auto opt = Options::get_option(arg);
+            auto [name, val] = Options::parse(arg);
+            auto opt = Options::get_option(name);
 
             if(opt) {
                 bool isshort = Options::is_short(arg);
-                std::string_view name = Options::get_name(opt->name);
 
                 if(!opt->flag) {
                     if(isshort) {
@@ -613,12 +608,16 @@ inline Values parse(int argc, char** argv) {
                             impl::error_and_exit("Invalid short option format");
                         arg = argv[i];
                     }
-                    else
-                        arg = Options::get_value(arg);
+                    else {
+                        if(val.empty())
+                            impl::error_and_exit("Invalid option format '", arg,
+                                                 "'");
+                        arg = val;
+                    }
                 }
 
                 ++i;
-                mopts[name] = arg;
+                mopts[opt->name] = arg;
             }
             else
                 impl::error_and_exit("Invalid option '", arg, "'");
@@ -680,7 +679,7 @@ inline Values parse(int argc, char** argv) {
             if(!o)
                 impl::abort();
 
-            if(mopts.count(arg.val)) {
+            if(mopts.count(o->name)) {
                 if(o->flag)
                     v[o->name] = impl::Value{true};
                 else
