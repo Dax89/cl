@@ -105,7 +105,7 @@ struct One: public Base<One> {
 
     One& operator--() = delete;
 
-    bool contains(std::string_view arg) const {
+    [[nodiscard]] bool contains(std::string_view arg) const {
         for(std::string_view x : items) // NOLINT
             if(arg == x)
                 return true;
