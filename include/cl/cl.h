@@ -229,7 +229,12 @@ struct Options {
     Options(std::initializer_list<impl::Option> opts) {
         Options::maxlength = 0;
         Options::items = opts;
+        Options::complete();
+    }
 
+    static bool empty() { return Options::items.empty(); }
+
+    static void complete() {
         Options::items.insert(Options::items.begin(),
                               impl::Option{"-v", "--version", "Show version"});
 
@@ -453,6 +458,9 @@ inline void version() {
 }
 
 inline void help() {
+    if(Options::empty())
+        Options::complete();
+
     impl::version();
     if(info.has_header())
         std::fputs("\n", stdout);
@@ -565,6 +573,9 @@ inline Values parse(int argc, char** argv) {
         else
             impl::error_and_exit("Cannot parse executable path");
     }
+
+    if(Options::empty())
+        Options::complete();
 
     std::string_view c = argv[1];
 
