@@ -15,6 +15,8 @@
 
 namespace cl {
 
+inline bool help_on_exit = true;
+
 namespace impl {
 
 template<typename... Args>
@@ -126,6 +128,10 @@ struct Value {
     template<typename T>
     explicit Value(T arg): v{arg} {}
 
+    [[nodiscard]] bool is_null() const {
+        return std::holds_alternative<std::monostate>(v);
+    }
+
     [[nodiscard]] bool is_bool() const {
         return std::holds_alternative<bool>(v);
     }
@@ -148,6 +154,8 @@ struct Value {
     bool operator==(T rhs) const {
         using U = std::decay_t<T>;
 
+        if constexpr(std::is_null_pointer_v<T>)
+            return this->is_null();
         if constexpr(std::is_convertible_v<U, std::string_view>)
             return this->is_string() && this->to_string() == rhs;
         else if constexpr(std::is_same_v<U, bool>)
@@ -182,9 +190,7 @@ struct Value {
             v);
     }
 
-    explicit operator bool() const {
-        return !std::holds_alternative<std::monostate>(v);
-    }
+    explicit operator bool() const { return !this->is_null(); }
 
     std::variant<std::monostate, bool, int, std::string_view> v;
 };
@@ -516,12 +522,14 @@ template<typename... Args>
     impl::print(std::forward<Args>(args)...);
     std::fputs("\n", stdout);
 
-    impl::help();
+    if(cl::help_on_exit)
+        impl::help();
     std::exit(2);
 }
 
 [[noreturn]] inline void help_and_exit() {
-    impl::help();
+    if(cl::help_on_exit)
+        impl::help();
     std::exit(1);
 }
 
