@@ -31,7 +31,8 @@ void print(Args&&... args) {
     for(std::string_view a : arr)
         std::fputs(a.data(), stdout);
 
-    if(!arr.empty()) std::fputs("\n", stdout);
+    if(!arr.empty())
+        std::fputs("\n", stdout);
 }
 
 template<typename... Args>
@@ -51,18 +52,21 @@ struct Option {
                     std::string_view d = {})
         : shortname{s}, fullname{n}, name{Option::get_name(fullname, flag)},
           description{d} {
-        if(n.empty()) impl::print_and_exit("Option name is empty");
+        if(n.empty())
+            impl::print_and_exit("Option name is empty");
     }
 
     explicit Option(std::string_view n, std::string_view d = {})
         : fullname{n}, name{Option::get_name(fullname, flag)}, description{d} {
-        if(n.empty()) impl::print_and_exit("Option name is empty");
+        if(n.empty())
+            impl::print_and_exit("Option name is empty");
     };
 
     static std::string_view get_name(std::string_view fn, bool& flag) {
         flag = false;
         for(size_t i = 0; i < fn.size(); i++) {
-            if(fn[i] == '=') return fn.substr(0, i);
+            if(fn[i] == '=')
+                return fn.substr(0, i);
         }
         flag = true;
         return fn;
@@ -103,7 +107,8 @@ struct One: public Base<One> {
 
     bool contains(std::string_view arg) const {
         for(std::string_view x : items) // NOLINT
-            if(arg == x) return true;
+            if(arg == x)
+                return true;
 
         return false;
     }
@@ -151,7 +156,8 @@ struct Value {
                     return "\"" + std::string{x} + "\"";
                 else if constexpr(std::is_same_v<T, std::monostate>)
                     return "null";
-                else static_assert(Value::always_false_v<T>);
+                else
+                    static_assert(Value::always_false_v<T>);
             },
             v);
     }
@@ -200,7 +206,8 @@ struct Options {
                                      "'");
 
             int len = o.columns();
-            if(len > Options::maxlength) Options::maxlength = len + 2;
+            if(len > Options::maxlength)
+                Options::maxlength = len + 2;
 
             Options::valid.insert(n);
             Options::valid.insert(s);
@@ -211,13 +218,15 @@ struct Options {
         bool found = false;
 
         for(size_t i = 0; i < arg.size(); i++) {
-            if(arg[i] != '=') continue;
+            if(arg[i] != '=')
+                continue;
             arg = arg.substr(i + 1);
             found = true;
             break;
         }
 
-        if(!found) impl::error_and_exit("Invalid option format '", arg, "'");
+        if(!found)
+            impl::error_and_exit("Invalid option format '", arg, "'");
         return arg;
     }
 
@@ -227,8 +236,10 @@ struct Options {
 
         for(; i < Options::items.size(); i++) {
             const impl::Option& o = Options::items[i];
-            if(arg == Options::get_name(o.shortname)) return o;
-            if(arg == Options::get_name(o.name)) return o;
+            if(arg == Options::get_name(o.shortname))
+                return o;
+            if(arg == Options::get_name(o.name))
+                return o;
         }
 
         return std::nullopt;
@@ -255,7 +266,8 @@ struct Options {
         }
 
         for(size_t i = 0; i < n.size(); i++) {
-            if(n[i] != '=') continue;
+            if(n[i] != '=')
+                continue;
             n = n.substr(0, i);
             break;
         }
@@ -292,14 +304,16 @@ struct Cmd {
         }
         else {
             args.emplace_back(rhs);
-            if(rhs.required) ++mincount;
+            if(rhs.required)
+                ++mincount;
         }
         return *this;
     }
 
     Cmd& operator,(const One& rhs) {
         args.emplace_back(rhs);
-        if(rhs.required) ++mincount;
+        if(rhs.required)
+            ++mincount;
         return *this;
     }
 
@@ -338,7 +352,8 @@ struct ArgPrinter {
     static std::string dump(const Arg& arg) {
         if(arg.option) {
             auto opt = Options::get_option(arg.val);
-            if(opt) return std::string{opt->fullname};
+            if(opt)
+                return std::string{opt->fullname};
             impl::abort();
         }
 
@@ -349,7 +364,8 @@ struct ArgPrinter {
         std::string res;
 
         for(size_t i = 0; i < arg.items.size(); i++) {
-            if(i) res += "|";
+            if(i)
+                res += "|";
             res += arg.items[i];
         }
 
@@ -357,17 +373,23 @@ struct ArgPrinter {
     }
 
     void operator()(One& arg) {
-        if(!arg.required) std::fputs("[", stdout);
+        if(!arg.required)
+            std::fputs("[", stdout);
         std::fputs(ArgPrinter::dump(arg).c_str(), stdout);
-        if(!arg.required) std::fputs("]", stdout);
+        if(!arg.required)
+            std::fputs("]", stdout);
     }
 
     void operator()(Arg& arg) {
-        if(!arg.required) std::fputs("[", stdout);
-        else if(!arg.option) std::fputs("<", stdout);
+        if(!arg.required)
+            std::fputs("[", stdout);
+        else if(!arg.option)
+            std::fputs("<", stdout);
         std::fputs(ArgPrinter::dump(arg).c_str(), stdout);
-        if(!arg.required) std::fputs("]", stdout);
-        else if(!arg.option) std::fputs(">", stdout);
+        if(!arg.required)
+            std::fputs("]", stdout);
+        else if(!arg.option)
+            std::fputs(">", stdout);
     }
 };
 
@@ -377,19 +399,22 @@ inline void version() {
         std::fputs(" ", stdout);
     }
 
-    if(!info.version.empty()) std::fputs(info.version.data(), stdout);
+    if(!info.version.empty())
+        std::fputs(info.version.data(), stdout);
 
     if(!info.description.empty()) {
         std::fputs("\n", stdout);
         std::fputs(info.description.data(), stdout);
     }
 
-    if(info.has_header()) std::fputs("\n", stdout);
+    if(info.has_header())
+        std::fputs("\n", stdout);
 }
 
 inline void help() {
     impl::version();
-    if(info.has_header()) std::fputs("\n", stdout);
+    if(info.has_header())
+        std::fputs("\n", stdout);
 
     if(!Usage::items.empty()) {
         std::fputs("Usage:\n", stdout);
@@ -482,15 +507,18 @@ inline void help() { impl::help(); }
 
 inline Values parse(int argc, char** argv) {
     if(argc <= 1) {
-        if(!Usage::items.empty()) impl::help_and_exit();
+        if(!Usage::items.empty())
+            impl::help_and_exit();
         return {};
     }
 
     std::string_view c = argv[1];
 
     if(argc == 2) {
-        if(c == "-h" || c == "--help") impl::help_and_exit();
-        else if(c == "-v" || c == "--version") impl::version_and_exit();
+        if(c == "-h" || c == "--help")
+            impl::help_and_exit();
+        else if(c == "-v" || c == "--version")
+            impl::version_and_exit();
     }
 
     std::unordered_map<std::string_view, std::string_view> mopts;
@@ -512,13 +540,15 @@ inline Values parse(int argc, char** argv) {
                             impl::error_and_exit("Invalid short option format");
                         arg = argv[i];
                     }
-                    else arg = Options::get_value(arg);
+                    else
+                        arg = Options::get_value(arg);
                 }
 
                 ++i;
                 mopts[name] = arg;
             }
-            else impl::error_and_exit("Invalid option '", arg, "'");
+            else
+                impl::error_and_exit("Invalid option '", arg, "'");
 
             continue;
         }
@@ -530,8 +560,10 @@ inline Values parse(int argc, char** argv) {
     Values v;
 
     for(impl::Cmd& cmd : Usage::items) {
-        if(cmd.name != c) continue;
-        if(margs.size() > cmd.args.size()) impl::help_and_exit();
+        if(cmd.name != c)
+            continue;
+        if(margs.size() > cmd.args.size())
+            impl::help_and_exit();
 
         for(size_t i = margs.size(); i < cmd.args.size(); i++) {
             std::visit(
@@ -564,29 +596,35 @@ inline Values parse(int argc, char** argv) {
                         v[x.val] = margs[i].empty() ? impl::Value{}
                                                     : impl::Value{margs[i]};
                     }
-                    else static_assert(impl::Value::always_false_v<T>);
+                    else
+                        static_assert(impl::Value::always_false_v<T>);
                 },
                 cmd.args[i]);
         }
 
         for(const impl::Arg& arg : cmd.options) {
             auto o = Options::get_option(arg.val);
-            if(!o) impl::abort();
+            if(!o)
+                impl::abort();
 
             if(mopts.count(arg.val)) {
-                if(o->flag) v[o->name] = impl::Value{true};
-                else v[o->name] = impl::Value{mopts[arg.val]};
+                if(o->flag)
+                    v[o->name] = impl::Value{true};
+                else
+                    v[o->name] = impl::Value{mopts[arg.val]};
             }
             else if(arg.required)
                 impl::error_and_exit("Missing required option '", o->name, "'");
-            else v[o->name] = o->flag ? impl::Value{false} : impl::Value{};
+            else
+                v[o->name] = o->flag ? impl::Value{false} : impl::Value{};
         }
 
-        if(cmd.entry) cmd.entry(v);
+        if(cmd.entry)
+            cmd.entry(v);
         return v;
     }
 
-    impl::help_and_exit();
+    impl::print_and_exit("Unknown command '", c, "'");
 }
 
 } // namespace cl
