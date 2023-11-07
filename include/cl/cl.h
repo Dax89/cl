@@ -81,8 +81,18 @@ struct Option {
             impl::print_and_exit("Option name is empty");
     };
 
-    [[nodiscard]] size_t columns() const {
-        return shortname.size() + name.size() + 4;
+    [[nodiscard]] std::string to_short_string() const {
+        if(shortname.empty())
+            return std::string{};
+
+        return "-" + std::string{shortname};
+    }
+
+    [[nodiscard]] std::string to_string() const {
+        std::string res{name};
+        if(!flag)
+            res += "=ARG";
+        return "--" + res;
     }
 };
 
@@ -234,6 +244,7 @@ struct Value {
 
 struct Options {
     Options(std::initializer_list<impl::Option> opts) {
+        Options::maxshortlength = 0;
         Options::maxlength = 0;
         Options::items = opts;
         Options::complete();
@@ -243,10 +254,10 @@ struct Options {
 
     static void complete() {
         Options::items.insert(Options::items.begin(),
-                              impl::Option{"-v", "--version", "Show version"});
+                              impl::Option{"v", "version", "Show version"});
 
         Options::items.insert(Options::items.begin(),
-                              impl::Option{"-h", "--help", "Show this screen"});
+                              impl::Option{"h", "help", "Show this screen"});
 
         for(const impl::Option& o : Options::items) {
             if(Options::valid.count(o.name))
@@ -255,13 +266,20 @@ struct Options {
                 impl::print_and_exit("Duplicate Short Option '", o.shortname,
                                      "'");
 
-            int len = o.columns();
+            int len = o.shortname.size();
+            if(len > Options::maxshortlength)
+                Options::maxshortlength = len;
+
+            len = o.shortname.size();
             if(len > Options::maxlength)
-                Options::maxlength = len + 2;
+                Options::maxlength = len;
 
             Options::valid.insert(o.name);
             Options::valid.insert(o.shortname);
         }
+
+        Options::maxshortlength += 1;
+        Options::maxlength += 6;
     }
 
     static std::pair<std::string_view, std::string_view>
@@ -316,11 +334,13 @@ struct Options {
 
     static std::vector<impl::Option> items;
     static std::unordered_set<std::string_view> valid;
+    static int maxshortlength;
     static int maxlength;
 };
 
 inline std::vector<impl::Option> Options::items;
 inline std::unordered_set<std::string_view> Options::valid;
+inline int Options::maxshortlength;
 inline int Options::maxlength;
 
 using Values = std::unordered_map<std::string_view, Value>;
@@ -347,10 +367,7 @@ struct ArgPrinter {
             if(!opt)
                 impl::abort();
 
-            std::string res{opt->name};
-            if(!opt->flag)
-                res += "=ARG";
-            return res;
+            return opt->to_string();
         }
 
         return std::string{arg.val};
@@ -516,15 +533,24 @@ inline void help() {
 
     for(const Option& o : Options::items) {
         std::fputs("  ", stdout);
-        std::fputs(o.shortname.data(), stdout);
-        std::fputs(" ", stdout);
-        std::fputs(o.name.data(), stdout);
+        std::string s = o.to_short_string();
+        std::fputs(s.data(), stdout);
 
-        int n = Options::maxlength - o.columns();
+        int n = Options::maxshortlength - s.size();
 
         for(int i = 0; i < n; i++)
             std::fputs(" ", stdout);
 
+        std::fputs(" ", stdout);
+        s = o.to_string();
+        std::fputs(s.data(), stdout);
+
+        n = Options::maxlength - s.size() + 6;
+
+        for(int i = 0; i < n; i++)
+            std::fputs(" ", stdout);
+
+        std::fputs(" ", stdout);
         std::fputs(o.description.data(), stdout);
         std::fputs("\n", stdout);
     }
