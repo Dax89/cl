@@ -211,27 +211,16 @@ struct Info {
         '/';
 #endif
 
-    std::string_view display;
+    std::string_view name;
     std::string_view description;
-    std::string_view name{"program"};
     std::string_view version;
 
     std::string_view fullpath;
     std::string_view executable;
     std::string_view path;
 
-    Info() = default;
-
-    explicit Info(std::string_view displ, std::string_view descr,
-                  std::string_view n, std::string_view v) {
-        display = displ;
-        description = descr;
-        name = n;
-        version = v;
-    }
-
     [[nodiscard]] bool has_header() const {
-        return !display.empty() || !version.empty() || !description.empty();
+        return !name.empty() || !version.empty() || !description.empty();
     }
 };
 
@@ -466,8 +455,8 @@ inline std::vector<impl::Cmd> Usage::items;
 
 namespace impl {
 inline void version() {
-    if(!info.display.empty()) {
-        std::fputs(info.display.data(), stdout);
+    if(!info.name.empty()) {
+        std::fputs(info.name.data(), stdout);
         std::fputs(" ", stdout);
     }
 
@@ -498,8 +487,8 @@ inline void help() {
         for(impl::Cmd& c : Usage::items) {
             std::fputs("  ", stdout);
 
-            if(!info.name.empty()) {
-                std::fputs(info.name.data(), stdout);
+            if(!info.executable.empty()) {
+                std::fputs(info.executable.data(), stdout);
                 std::fputs(" ", stdout);
             }
 
@@ -580,7 +569,10 @@ inline impl::Option opt(impl::OptArg l, std::string_view d = {}) {
     return impl::Option{{}, l, d};
 }
 
-inline void set_info(impl::Info i) { impl::info = i; }
+inline void set_name(std::string_view n) { impl::info.name = n; }
+inline void set_version(std::string_view v) { impl::info.version = v; }
+inline void set_description(std::string_view v) { impl::info.description = v; }
+
 inline void help() { impl::help(); }
 
 inline Values parse(int argc, char** argv) {
