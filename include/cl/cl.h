@@ -127,6 +127,31 @@ struct One: public Base<One> {
 
 using ArgType = std::variant<Arg, One>;
 
+struct Info {
+    static constexpr char PATH_SEPARATOR =
+#if defined(_WIN32)
+        '\\';
+#else
+        '/';
+#endif
+
+    std::string_view name;
+    std::string_view description;
+    std::string_view version;
+
+    std::string_view fullpath;
+    std::string_view executable;
+    std::string_view path;
+
+    [[nodiscard]] bool has_header() const {
+        return !name.empty() || !version.empty() || !description.empty();
+    }
+};
+
+inline Info info;
+
+} // namespace impl
+
 struct Value {
     template<typename>
     static constexpr bool always_false_v = false;
@@ -206,31 +231,6 @@ struct Value {
 
     std::variant<std::monostate, bool, int, std::string_view> v;
 };
-
-struct Info {
-    static constexpr char PATH_SEPARATOR =
-#if defined(_WIN32)
-        '\\';
-#else
-        '/';
-#endif
-
-    std::string_view name;
-    std::string_view description;
-    std::string_view version;
-
-    std::string_view fullpath;
-    std::string_view executable;
-    std::string_view path;
-
-    [[nodiscard]] bool has_header() const {
-        return !name.empty() || !version.empty() || !description.empty();
-    }
-};
-
-inline Info info;
-
-} // namespace impl
 
 struct Options {
     Options(std::initializer_list<impl::Option> opts) {
@@ -323,7 +323,7 @@ inline std::vector<impl::Option> Options::items;
 inline std::unordered_set<std::string_view> Options::valid;
 inline int Options::maxlength;
 
-using Values = std::unordered_map<std::string_view, impl::Value>;
+using Values = std::unordered_map<std::string_view, Value>;
 using Entry = std::function<void(const Values&)>;
 
 namespace string_literals {
@@ -684,14 +684,13 @@ inline Values parse(int argc, char** argv) {
                         }
 
                         for(std::string_view one : x.items)
-                            v[one] = impl::Value{margs[i] == one};
+                            v[one] = Value{margs[i] == one};
                     }
                     else if constexpr(std::is_same_v<T, impl::Arg>) {
-                        v[x.val] = margs[i].empty() ? impl::Value{}
-                                                    : impl::Value{margs[i]};
+                        v[x.val] = margs[i].empty() ? Value{} : Value{margs[i]};
                     }
                     else
-                        static_assert(impl::Value::always_false_v<T>);
+                        static_assert(Value::always_false_v<T>);
                 },
                 cmd.args[i]);
         }
@@ -703,14 +702,14 @@ inline Values parse(int argc, char** argv) {
 
             if(mopts.count(o->name)) {
                 if(o->flag)
-                    v[o->name] = impl::Value{true};
+                    v[o->name] = Value{true};
                 else
-                    v[o->name] = impl::Value{mopts[arg.val]};
+                    v[o->name] = Value{mopts[arg.val]};
             }
             else if(arg.required)
                 impl::error_and_exit("Missing required option '", o->name, "'");
             else
-                v[o->name] = o->flag ? impl::Value{false} : impl::Value{};
+                v[o->name] = o->flag ? Value{false} : Value{};
         }
 
         if(cmd.entry)
