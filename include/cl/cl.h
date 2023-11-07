@@ -154,8 +154,12 @@ struct Value {
 
     [[nodiscard]] int to_int() const { return std::get<int>(v); }
 
-    [[nodiscard]] std::string_view to_string() const {
+    [[nodiscard]] std::string_view to_stringview() const {
         return std::get<std::string_view>(v);
+    }
+
+    [[nodiscard]] std::string to_string() const {
+        return std::string{std::get<std::string_view>(v)};
     }
 
     template<typename T>
@@ -165,7 +169,7 @@ struct Value {
         if constexpr(std::is_null_pointer_v<T>)
             return this->is_null();
         if constexpr(std::is_convertible_v<U, std::string_view>)
-            return this->is_string() && this->to_string() == rhs;
+            return this->is_string() && this->to_stringview() == rhs;
         else if constexpr(std::is_same_v<U, bool>)
             return this->is_bool() && this->to_bool() == rhs;
         else if constexpr(std::is_convertible_v<U, int>)
