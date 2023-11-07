@@ -149,7 +149,7 @@ struct Info {
     std::string_view description;
     std::string_view version;
 
-    std::string_view fullpath;
+    std::string fullpath;
     std::string_view executable;
     std::string_view path;
 
@@ -578,6 +578,42 @@ template<typename... Args>
     std::exit(1);
 }
 
+inline Values init_value() {
+    Values values;
+
+    for(impl::Cmd& c : Usage::items) {
+        values.try_emplace(c.name, false);
+
+        for(ArgType& arg : c.args) {
+            std::visit(
+                [&](auto& x) {
+                    using T = std::decay_t<decltype(x)>;
+
+                    if constexpr(std::is_same_v<T, Arg>) {
+                        if(!x.option)
+                            values.try_emplace(x.val, Value{});
+                    }
+                    else if constexpr(std::is_same_v<T, One>) {
+                        for(std::string_view item : x.items)
+                            values.try_emplace(item, false);
+                    }
+                    else
+                        static_assert(Value::always_false_v<T>);
+                },
+                arg);
+        }
+    }
+
+    for(impl::Option& opt : Options::items) {
+        if(opt.flag)
+            values.try_emplace(opt.name, Value{false});
+        else
+            values.try_emplace(opt.name, Value{});
+    }
+
+    return values;
+}
+
 } // namespace impl
 
 template<typename... Args>
@@ -613,16 +649,16 @@ inline Values parse(int argc, char** argv) {
     }
 
     impl::info.fullpath = argv[0];
+    size_t idx = impl::info.fullpath.rfind(impl::Info::PATH_SEPARATOR);
 
-    if(!impl::info.fullpath.empty()) {
-        size_t idx = impl::info.fullpath.rfind(impl::Info::PATH_SEPARATOR);
-
-        if(idx != std::string_view::npos) {
-            impl::info.path = impl::info.fullpath.substr(0, idx);
-            impl::info.executable = impl::info.fullpath.substr(idx + 1);
-        }
-        else
-            impl::error_and_exit("Cannot parse executable path");
+    if(idx != std::string_view::npos) {
+        impl::info.path = impl::info.fullpath.substr(0, idx);
+        impl::info.executable = impl::info.fullpath.substr(idx + 1);
+    }
+    else {
+        impl::info.fullpath = "./" + impl::info.fullpath;
+        impl::info.path = ".";
+        impl::info.executable = argv[0];
     }
 
     if(Options::empty())
@@ -677,13 +713,15 @@ inline Values parse(int argc, char** argv) {
         i++;
     }
 
-    Values v;
+    Values v = impl::init_value();
 
     for(impl::Cmd& cmd : Usage::items) {
         if(cmd.name != c)
             continue;
         if(margs.size() > cmd.args.size())
             impl::help_and_exit();
+
+        v[cmd.name] = Value{true};
 
         for(size_t i = margs.size(); i < cmd.args.size(); i++) {
             std::visit(
@@ -713,7 +751,8 @@ inline Values parse(int argc, char** argv) {
                             v[one] = Value{margs[i] == one};
                     }
                     else if constexpr(std::is_same_v<T, impl::Arg>) {
-                        v[x.val] = margs[i].empty() ? Value{} : Value{margs[i]};
+                        if(!margs[i].empty())
+                            v[x.val] = Value{margs[i]};
                     }
                     else
                         static_assert(Value::always_false_v<T>);
@@ -734,8 +773,6 @@ inline Values parse(int argc, char** argv) {
             }
             else if(arg.required)
                 impl::error_and_exit("Missing required option '", o->name, "'");
-            else
-                v[o->name] = o->flag ? Value{false} : Value{};
         }
 
         if(cmd.entry)

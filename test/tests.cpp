@@ -27,18 +27,21 @@ TEST_CASE("Positionals", "[positional]") {
 
     auto values = parse_args("command1", "one", "two");
     REQUIRE(!values.empty());
+    REQUIRE(values["command1"] == true);
     REQUIRE(values["arg1_1"] == "one");
     REQUIRE(values["arg1_2"] == "two");
     REQUIRE(!values["arg1_3"]);
 
     values = parse_args("command2", "one", "two", "three");
     REQUIRE(!values.empty());
+    REQUIRE(values["command2"] == true);
     REQUIRE(values["arg2_1"] == "one");
     REQUIRE(values["arg2_2"] == "two");
     REQUIRE(values["arg2_3"] == "three");
 
     values = parse_args("command3", "one", "two", "three");
     REQUIRE(!values.empty());
+    REQUIRE(values["command3"] == true);
     REQUIRE(values["arg3_1"] == "one");
     REQUIRE(values["arg3_2"] == "two");
     REQUIRE(values["arg3_3"] == "three");
@@ -64,12 +67,14 @@ TEST_CASE("Options", "[options]") {
 
     auto values = parse_args("command1", "one", "two", "--option1");
     REQUIRE(!values.empty());
+    REQUIRE(values["command1"] == true);
     REQUIRE(values["arg1_1"] == "one");
     REQUIRE(values["arg1_2"] == "two");
     REQUIRE(values["option1"] == true);
 
     values = parse_args("command2", "one", "two", "-o1");
     REQUIRE(!values.empty());
+    REQUIRE(values["command2"] == true);
     REQUIRE(values["arg2_1"] == "one");
     REQUIRE(values["arg2_2"] == "two");
     REQUIRE(values["option1"] == true);
@@ -77,6 +82,7 @@ TEST_CASE("Options", "[options]") {
 
     values = parse_args("command3", "-o2", "foo", "--option3=bar");
     REQUIRE(!values.empty());
+    REQUIRE(values["command3"] == true);
     REQUIRE(values["arg3_1"].is_null());
     REQUIRE(values["arg3_2"].is_null());
     REQUIRE(values["option2"] == "foo");
@@ -103,6 +109,7 @@ TEST_CASE("Ones", "[ones]") {
 
     auto values = parse_args("command1", "one", "two", "foo", "--option1");
     REQUIRE(!values.empty());
+    REQUIRE(values["command1"] == true);
     REQUIRE(values["arg1_1"] == "one");
     REQUIRE(values["arg1_2"] == "two");
     REQUIRE(values["foo"] == true);
@@ -111,6 +118,7 @@ TEST_CASE("Ones", "[ones]") {
 
     values = parse_args("command2", "one", "two", "-o1");
     REQUIRE(!values.empty());
+    REQUIRE(values["command2"] == true);
     REQUIRE(values["arg2_1"] == "one");
     REQUIRE(values["arg2_2"] == "two");
     REQUIRE(values["foo"] == false);
@@ -120,6 +128,7 @@ TEST_CASE("Ones", "[ones]") {
 
     values = parse_args("command3", "one", "two", "foo", "456", "-o2", "val", "--option3=bar");
     REQUIRE(!values.empty());
+    REQUIRE(values["command3"] == true);
     REQUIRE(values["arg3_1"] == "one");
     REQUIRE(values["arg3_2"] == "two");
     REQUIRE(values["foo"] == true);
