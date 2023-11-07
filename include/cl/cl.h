@@ -125,6 +125,8 @@ struct One: public Base<One> {
     std::vector<std::string_view> items;
 };
 
+using ArgType = std::variant<Arg, One>;
+
 struct Value {
     template<typename>
     static constexpr bool always_false_v = false;
@@ -331,45 +333,6 @@ inline int Options::maxlength;
 using Values = std::unordered_map<std::string_view, impl::Value>;
 using Entry = std::function<void(const Values&)>;
 
-namespace impl {
-
-struct Cmd {
-    Cmd& operator,(std::string_view rhs) { return this->operator,(Arg{rhs}); }
-
-    Cmd& operator,(const Arg& rhs) {
-        if(rhs.option) {
-            Options::check(rhs);
-            options.emplace_back(rhs);
-        }
-        else {
-            args.emplace_back(rhs);
-            if(rhs.required)
-                ++mincount;
-        }
-        return *this;
-    }
-
-    Cmd& operator,(const One& rhs) {
-        args.emplace_back(rhs);
-        if(rhs.required)
-            ++mincount;
-        return *this;
-    }
-
-    Cmd& operator>>(Entry&& rhs) {
-        entry = std::move(rhs);
-        return *this;
-    }
-
-    std::string_view name;
-    std::vector<std::variant<Arg, One>> args{};
-    std::vector<Arg> options{};
-    Entry entry{nullptr};
-    size_t mincount{0};
-};
-
-} // namespace impl
-
 namespace string_literals {
 
 inline impl::Arg operator""__(const char* arg, std::size_t len) {
@@ -381,13 +344,6 @@ inline impl::OptArg operator""_arg(const char* arg, std::size_t len) {
 }
 
 } // namespace string_literals
-
-struct Usage {
-    Usage(std::initializer_list<impl::Cmd> cmds) { Usage::items = cmds; }
-    static std::vector<impl::Cmd> items;
-};
-
-inline std::vector<impl::Cmd> Usage::items;
 
 namespace impl {
 
@@ -419,6 +375,10 @@ struct ArgPrinter {
         return "(" + res + ")";
     }
 
+    static std::string dump(ArgType& arg) {
+        return std::visit([](auto&& x) { return ArgPrinter::dump(x); }, arg);
+    }
+
     void operator()(One& arg) {
         if(!arg.required)
             std::fputs("[", stdout);
@@ -440,6 +400,71 @@ struct ArgPrinter {
     }
 };
 
+struct Cmd {
+    Cmd& operator,(std::string_view rhs) { return this->operator,(Arg{rhs}); }
+
+    Cmd& operator,(const Arg& rhs) {
+        if(rhs.option) {
+            Options::check(rhs);
+            options.emplace_back(rhs);
+        }
+        else {
+            this->check_required(rhs);
+            args.emplace_back(rhs);
+        }
+
+        return *this;
+    }
+
+    Cmd& operator,(const One& rhs) {
+        this->check_required(rhs);
+        args.emplace_back(rhs);
+        return *this;
+    }
+
+    Cmd& operator>>(Entry&& rhs) {
+        entry = std::move(rhs);
+        return *this;
+    }
+
+    template<typename T>
+    void check_required(const T& arg) {
+        if(arg.required) {
+            if(!this->is_prev_required()) {
+                impl::error_and_exit(
+                    "Positional '", impl::ArgPrinter::dump(arg),
+                    "' cannot be required because '",
+                    impl::ArgPrinter::dump(args.back()),
+                    "' is optional for command '", this->name, "'");
+            }
+
+            ++mincount;
+        }
+    }
+
+    [[nodiscard]] bool is_prev_required() const {
+        return args.empty() ||
+               std::visit([](auto&& x) -> bool { return x.required; },
+                          args.back());
+    }
+
+    std::string_view name;
+    std::vector<ArgType> args{};
+    std::vector<Arg> options{};
+    Entry entry{nullptr};
+    size_t mincount{0};
+};
+
+} // namespace impl
+
+struct Usage {
+    Usage(std::initializer_list<impl::Cmd> cmds) { Usage::items = cmds; }
+    static std::vector<impl::Cmd> items;
+};
+
+inline std::vector<impl::Cmd> Usage::items;
+
+namespace impl {
 inline void version() {
     if(!info.display.empty()) {
         std::fputs(info.display.data(), stdout);
@@ -463,6 +488,7 @@ inline void help() {
         Options::complete();
 
     impl::version();
+
     if(info.has_header())
         std::fputs("\n", stdout);
 

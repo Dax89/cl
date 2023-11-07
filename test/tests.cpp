@@ -21,7 +21,7 @@ TEST_CASE("Positionals", "[positional]") {
 
     cl::Usage{
         cl::cmd("command1", "arg1_1", "arg1_2", *"arg1_3"__),
-        cl::cmd("command2", "arg2_1", *"arg2_2"__, "arg2_3"),
+        cl::cmd("command2", "arg2_1", *"arg2_2"__, *"arg2_3"__),
         cl::cmd("command3", "arg3_1"__, "arg3_2"__, *"arg3_3"__),
     };
 
