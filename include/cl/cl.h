@@ -148,10 +148,7 @@ struct Info {
     std::string_view name;
     std::string_view description;
     std::string_view version;
-
-    std::string fullpath;
-    std::string_view executable;
-    std::string_view path;
+    std::string_view program{"program"};
 
     [[nodiscard]] bool has_header() const {
         return !name.empty() || !version.empty() || !description.empty();
@@ -508,8 +505,8 @@ inline void help() {
         for(impl::Cmd& c : Usage::items) {
             std::fputs("  ", stdout);
 
-            if(!info.executable.empty()) {
-                std::fputs(info.executable.data(), stdout);
+            if(!info.program.empty()) {
+                std::fputs(info.program.data(), stdout);
                 std::fputs(" ", stdout);
             }
 
@@ -638,6 +635,7 @@ inline impl::Option opt(impl::OptArg l, std::string_view d = {}) {
 inline void set_name(std::string_view n) { impl::info.name = n; }
 inline void set_version(std::string_view v) { impl::info.version = v; }
 inline void set_description(std::string_view v) { impl::info.description = v; }
+inline void set_program(std::string_view n) { impl::info.program = n; }
 
 inline void help() { impl::help(); }
 
@@ -646,19 +644,6 @@ inline Values parse(int argc, char** argv) {
         if(!Usage::items.empty())
             impl::help_and_exit();
         return {};
-    }
-
-    impl::info.fullpath = argv[0];
-    size_t idx = impl::info.fullpath.rfind(impl::Info::PATH_SEPARATOR);
-
-    if(idx != std::string_view::npos) {
-        impl::info.path = impl::info.fullpath.substr(0, idx);
-        impl::info.executable = impl::info.fullpath.substr(idx + 1);
-    }
-    else {
-        impl::info.fullpath = "./" + impl::info.fullpath;
-        impl::info.path = ".";
-        impl::info.executable = argv[0];
     }
 
     if(Options::empty())
@@ -782,9 +767,5 @@ inline Values parse(int argc, char** argv) {
 
     impl::print_and_exit("Unknown command '", c, "'");
 }
-
-inline std::string_view full_path() { return impl::info.fullpath; }
-inline std::string_view path() { return impl::info.path; }
-inline std::string_view executable() { return impl::info.executable; }
 
 } // namespace cl
