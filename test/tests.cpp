@@ -9,8 +9,8 @@ void clear_cl() {
     cl::Usage::items.clear();
 }
 
-template<typename... Args>
-cl::Values parse_args(Args&&... args) {
+template<typename... Ts>
+cl::Args parse_args(Ts&&... args) {
     std::initializer_list<const char*> arr = {"", args...};
     return cl::parse(arr.size(), const_cast<char**>(arr.begin()));
 }
@@ -25,26 +25,26 @@ TEST_CASE("Positionals", "[positional]") {
         cl::cmd("command3", "arg3_1"__, "arg3_2"__, *"arg3_3"__),
     };
 
-    auto values = parse_args("command1", "one", "two");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command1"] == true);
-    REQUIRE(values["arg1_1"] == "one");
-    REQUIRE(values["arg1_2"] == "two");
-    REQUIRE(!values["arg1_3"]);
+    cl::Args args = parse_args("command1", "one", "two");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command1"] == true);
+    REQUIRE(args["arg1_1"] == "one");
+    REQUIRE(args["arg1_2"] == "two");
+    REQUIRE(!args["arg1_3"]);
 
-    values = parse_args("command2", "one", "two", "three");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command2"] == true);
-    REQUIRE(values["arg2_1"] == "one");
-    REQUIRE(values["arg2_2"] == "two");
-    REQUIRE(values["arg2_3"] == "three");
+    args = parse_args("command2", "one", "two", "three");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command2"] == true);
+    REQUIRE(args["arg2_1"] == "one");
+    REQUIRE(args["arg2_2"] == "two");
+    REQUIRE(args["arg2_3"] == "three");
 
-    values = parse_args("command3", "one", "two", "three");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command3"] == true);
-    REQUIRE(values["arg3_1"] == "one");
-    REQUIRE(values["arg3_2"] == "two");
-    REQUIRE(values["arg3_3"] == "three");
+    args = parse_args("command3", "one", "two", "three");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command3"] == true);
+    REQUIRE(args["arg3_1"] == "one");
+    REQUIRE(args["arg3_2"] == "two");
+    REQUIRE(args["arg3_3"] == "three");
 }
 
 TEST_CASE("Options", "[options]") {
@@ -65,28 +65,28 @@ TEST_CASE("Options", "[options]") {
     };
     // clang-format oon
 
-    auto values = parse_args("command1", "one", "two", "--option1");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command1"] == true);
-    REQUIRE(values["arg1_1"] == "one");
-    REQUIRE(values["arg1_2"] == "two");
-    REQUIRE(values["option1"] == true);
+    cl::Args args = parse_args("command1", "one", "two", "--option1");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command1"] == true);
+    REQUIRE(args["arg1_1"] == "one");
+    REQUIRE(args["arg1_2"] == "two");
+    REQUIRE(args["option1"] == true);
 
-    values = parse_args("command2", "one", "two", "-o1");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command2"] == true);
-    REQUIRE(values["arg2_1"] == "one");
-    REQUIRE(values["arg2_2"] == "two");
-    REQUIRE(values["option1"] == true);
-    REQUIRE(values["option2"].is_null());
+    args = parse_args("command2", "one", "two", "-o1");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command2"] == true);
+    REQUIRE(args["arg2_1"] == "one");
+    REQUIRE(args["arg2_2"] == "two");
+    REQUIRE(args["option1"] == true);
+    REQUIRE(args["option2"].is_null());
 
-    values = parse_args("command3", "-o2", "foo", "--option3=bar");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command3"] == true);
-    REQUIRE(values["arg3_1"].is_null());
-    REQUIRE(values["arg3_2"].is_null());
-    REQUIRE(values["option2"] == "foo");
-    REQUIRE(values["option3"] == "bar");
+    args = parse_args("command3", "-o2", "foo", "--option3=bar");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command3"] == true);
+    REQUIRE(args["arg3_1"].is_null());
+    REQUIRE(args["arg3_2"].is_null());
+    REQUIRE(args["option2"] == "foo");
+    REQUIRE(args["option3"] == "bar");
 }
 
 TEST_CASE("Ones", "[ones]") {
@@ -107,34 +107,34 @@ TEST_CASE("Ones", "[ones]") {
     };
     // clang-format oon
 
-    auto values = parse_args("command1", "one", "two", "foo", "--option1");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command1"] == true);
-    REQUIRE(values["arg1_1"] == "one");
-    REQUIRE(values["arg1_2"] == "two");
-    REQUIRE(values["foo"] == true);
-    REQUIRE(values["bar"] == false);
-    REQUIRE(values["option1"] == true);
+    cl::Args args = parse_args("command1", "one", "two", "foo", "--option1");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command1"] == true);
+    REQUIRE(args["arg1_1"] == "one");
+    REQUIRE(args["arg1_2"] == "two");
+    REQUIRE(args["foo"] == true);
+    REQUIRE(args["bar"] == false);
+    REQUIRE(args["option1"] == true);
 
-    values = parse_args("command2", "one", "two", "-o1");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command2"] == true);
-    REQUIRE(values["arg2_1"] == "one");
-    REQUIRE(values["arg2_2"] == "two");
-    REQUIRE(values["foo"] == false);
-    REQUIRE(values["bar"] == false);
-    REQUIRE(values["option1"] == true);
-    REQUIRE(values["option2"].is_null());
+    args = parse_args("command2", "one", "two", "-o1");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command2"] == true);
+    REQUIRE(args["arg2_1"] == "one");
+    REQUIRE(args["arg2_2"] == "two");
+    REQUIRE(args["foo"] == false);
+    REQUIRE(args["bar"] == false);
+    REQUIRE(args["option1"] == true);
+    REQUIRE(args["option2"].is_null());
 
-    values = parse_args("command3", "one", "two", "foo", "456", "-o2", "val", "--option3=bar");
-    REQUIRE(!values.empty());
-    REQUIRE(values["command3"] == true);
-    REQUIRE(values["arg3_1"] == "one");
-    REQUIRE(values["arg3_2"] == "two");
-    REQUIRE(values["foo"] == true);
-    REQUIRE(values["bar"] == false);
-    REQUIRE(values["123"] == false);
-    REQUIRE(values["456"] == true);
-    REQUIRE(values["option2"] == "val");
-    REQUIRE(values["option3"] == "bar");
+    args = parse_args("command3", "one", "two", "foo", "456", "-o2", "val", "--option3=bar");
+    REQUIRE(!args.empty());
+    REQUIRE(args["command3"] == true);
+    REQUIRE(args["arg3_1"] == "one");
+    REQUIRE(args["arg3_2"] == "two");
+    REQUIRE(args["foo"] == true);
+    REQUIRE(args["bar"] == false);
+    REQUIRE(args["123"] == false);
+    REQUIRE(args["456"] == true);
+    REQUIRE(args["option2"] == "val");
+    REQUIRE(args["option3"] == "bar");
 }

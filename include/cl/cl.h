@@ -29,17 +29,17 @@ inline std::string_view strip_dash(std::string_view v) {
     return v;
 }
 
-template<typename... Args>
-[[noreturn]] inline void error_and_exit(Args&&... args);
+template<typename... Ts>
+[[noreturn]] inline void error_and_exit(Ts&&... args);
 
 [[noreturn]] inline void abort() {
     std::fputs("Unreachable code detected\n", stdout);
     std::exit(3);
 }
 
-template<typename... Args>
-void print(Args&&... args) {
-    std::array<std::string_view, sizeof...(Args)> arr{args...};
+template<typename... Ts>
+void print(Ts&&... args) {
+    std::array<std::string_view, sizeof...(Ts)> arr{args...};
 
     for(std::string_view a : arr)
         std::fputs(a.data(), stdout);
@@ -48,34 +48,33 @@ void print(Args&&... args) {
         std::fputs("\n", stdout);
 }
 
-template<typename... Args>
-[[noreturn]] void print_and_exit(Args&&... args) {
-    impl::print(std::forward<Args>(args)...);
+template<typename... Ts>
+[[noreturn]] void print_and_exit(Ts&&... args) {
+    impl::print(std::forward<Ts>(args)...);
     std::exit(2);
 }
 
-struct OptArg {
-    OptArg(const char* n): val{n}, flag{true} {}; // NOLINT
-    OptArg(std::string_view n, bool f): val{n}, flag{f} {}
+struct OptParam {
+    OptParam(const char* n): val{n}, flag{true} {}; // NOLINT
+    OptParam(std::string_view n, bool f): val{n}, flag{f} {}
 
     std::string_view val;
     bool flag;
 };
 
-struct Option {
+struct Opt {
     std::string_view shortname;
     std::string_view name;
     std::string_view description;
     bool flag;
 
-    explicit Option(std::string_view s, const OptArg& n,
-                    std::string_view d = {})
+    explicit Opt(std::string_view s, const OptParam& n, std::string_view d = {})
         : shortname{s}, name{n.val}, flag{n.flag}, description{d} {
         if(name.empty())
             impl::print_and_exit("Option name is empty");
     }
 
-    explicit Option(const OptArg& n, std::string_view d = {})
+    explicit Opt(const OptParam& n, std::string_view d = {})
         : name{n.val}, flag{n.flag}, description{d} {
         if(name.empty())
             impl::print_and_exit("Option name is empty");
@@ -112,8 +111,8 @@ struct Base {
     }
 };
 
-struct Arg: public Base<Arg> {
-    explicit Arg(std::string_view arg): Base<Arg>{}, val{arg} {}
+struct Param: public Base<Param> {
+    explicit Param(std::string_view arg): Base<Param>{}, val{arg} {}
 
     std::string_view val;
 };
@@ -135,7 +134,7 @@ struct One: public Base<One> {
     std::vector<std::string_view> items;
 };
 
-using ArgType = std::variant<Arg, One>;
+using ParamType = std::variant<Param, One>;
 
 struct Info {
     static constexpr char PATH_SEPARATOR =
@@ -159,14 +158,14 @@ inline Info info;
 
 } // namespace impl
 
-struct Value {
+struct Arg {
     template<typename>
     static constexpr bool always_false_v = false;
 
-    Value() = default;
+    Arg() = default;
 
     template<typename T>
-    explicit Value(T arg): v{arg} {}
+    explicit Arg(T t): v{t} {}
 
     [[nodiscard]] bool is_null() const {
         return std::holds_alternative<std::monostate>(v);
@@ -207,7 +206,7 @@ struct Value {
         else if constexpr(std::is_convertible_v<U, int>)
             return this->is_int() && this->to_int() == rhs;
         else
-            static_assert(Value::always_false_v<U>);
+            static_assert(Arg::always_false_v<U>);
     }
 
     template<typename T>
@@ -229,7 +228,7 @@ struct Value {
                 else if constexpr(std::is_same_v<T, std::monostate>)
                     return "null";
                 else
-                    static_assert(Value::always_false_v<T>);
+                    static_assert(Arg::always_false_v<T>);
             },
             v);
     }
@@ -240,7 +239,7 @@ struct Value {
 };
 
 struct Options {
-    Options(std::initializer_list<impl::Option> opts) {
+    Options(std::initializer_list<impl::Opt> opts) {
         Options::maxshortlength = 0;
         Options::maxlength = 0;
         Options::items = opts;
@@ -251,12 +250,12 @@ struct Options {
 
     static void complete() {
         Options::items.insert(Options::items.begin(),
-                              impl::Option{"v", "version", "Show version"});
+                              impl::Opt{"v", "version", "Show version"});
 
         Options::items.insert(Options::items.begin(),
-                              impl::Option{"h", "help", "Show this screen"});
+                              impl::Opt{"h", "help", "Show this screen"});
 
-        for(const impl::Option& o : Options::items) {
+        for(const impl::Opt& o : Options::items) {
             if(Options::valid.count(o.name))
                 impl::print_and_exit("Duplicate Option '", o.name, "'");
             else if(Options::valid.count(o.shortname))
@@ -297,11 +296,11 @@ struct Options {
         return res;
     }
 
-    static std::optional<impl::Option> get_option(std::string_view arg) {
+    static std::optional<impl::Opt> get_option(std::string_view arg) {
         if(arg.size() < 2)
             return std::nullopt;
 
-        for(const impl::Option& o : Options::items) {
+        for(const impl::Opt& o : Options::items) {
             if(arg == o.shortname)
                 return o;
             if(arg == o.name)
@@ -324,93 +323,93 @@ struct Options {
         return isshort;
     }
 
-    static void check(const impl::Arg& opt) {
+    static void check(const impl::Param& opt) {
         if(!Options::valid.count(opt.val))
             impl::print_and_exit("Unknown option '", opt.val, "'");
     }
 
-    static std::vector<impl::Option> items;
+    static std::vector<impl::Opt> items;
     static std::unordered_set<std::string_view> valid;
     static int maxshortlength;
     static int maxlength;
 };
 
-inline std::vector<impl::Option> Options::items;
+inline std::vector<impl::Opt> Options::items;
 inline std::unordered_set<std::string_view> Options::valid;
 inline int Options::maxshortlength;
 inline int Options::maxlength;
 
-using Values = std::unordered_map<std::string_view, Value>;
-using Entry = std::function<void(const Values&)>;
+using Args = std::unordered_map<std::string_view, Arg>;
+using Entry = std::function<void(const Args&)>;
 
 namespace string_literals {
 
-inline impl::Arg operator""__(const char* arg, std::size_t len) {
-    return impl::Arg{std::string_view{arg, len}};
+inline impl::Param operator""__(const char* arg, std::size_t len) {
+    return impl::Param{std::string_view{arg, len}};
 }
 
-inline impl::OptArg operator""_arg(const char* arg, std::size_t len) {
-    return impl::OptArg{std::string_view{arg, len}, false};
+inline impl::OptParam operator""_arg(const char* arg, std::size_t len) {
+    return impl::OptParam{std::string_view{arg, len}, false};
 }
 
 } // namespace string_literals
 
 namespace impl {
 
-struct ArgPrinter {
-    static std::string dump(const Arg& arg) {
-        if(arg.option) {
-            auto opt = Options::get_option(arg.val);
+struct ParamPrinter {
+    static std::string dump(const Param& p) {
+        if(p.option) {
+            auto opt = Options::get_option(p.val);
             if(!opt)
                 impl::abort();
 
             return opt->to_string();
         }
 
-        return std::string{arg.val};
+        return std::string{p.val};
     }
 
-    static std::string dump(const One& arg) {
+    static std::string dump(const One& p) {
         std::string res;
 
-        for(size_t i = 0; i < arg.items.size(); i++) {
+        for(size_t i = 0; i < p.items.size(); i++) {
             if(i)
                 res += "|";
-            res += arg.items[i];
+            res += p.items[i];
         }
 
         return "(" + res + ")";
     }
 
-    static std::string dump(ArgType& arg) {
-        return std::visit([](auto&& x) { return ArgPrinter::dump(x); }, arg);
+    static std::string dump(ParamType& p) {
+        return std::visit([](auto&& x) { return ParamPrinter::dump(x); }, p);
     }
 
-    void operator()(One& arg) {
-        if(!arg.required)
+    void operator()(One& p) {
+        if(!p.required)
             std::fputs("[", stdout);
-        std::fputs(ArgPrinter::dump(arg).c_str(), stdout);
-        if(!arg.required)
+        std::fputs(ParamPrinter::dump(p).c_str(), stdout);
+        if(!p.required)
             std::fputs("]", stdout);
     }
 
-    void operator()(Arg& arg) {
-        if(!arg.required)
+    void operator()(Param& p) {
+        if(!p.required)
             std::fputs("[", stdout);
-        else if(!arg.option)
+        else if(!p.option)
             std::fputs("<", stdout);
-        std::fputs(ArgPrinter::dump(arg).c_str(), stdout);
-        if(!arg.required)
+        std::fputs(ParamPrinter::dump(p).c_str(), stdout);
+        if(!p.required)
             std::fputs("]", stdout);
-        else if(!arg.option)
+        else if(!p.option)
             std::fputs(">", stdout);
     }
 };
 
 struct Cmd {
-    Cmd& operator,(std::string_view rhs) { return this->operator,(Arg{rhs}); }
+    Cmd& operator,(std::string_view rhs) { return this->operator,(Param{rhs}); }
 
-    Cmd& operator,(const Arg& rhs) {
+    Cmd& operator,(const Param& rhs) {
         if(rhs.option) {
             Options::check(rhs);
             options.emplace_back(rhs);
@@ -435,13 +434,13 @@ struct Cmd {
     }
 
     template<typename T>
-    void check_required(const T& arg) {
-        if(arg.required) {
+    void check_required(const T& p) {
+        if(p.required) {
             if(!this->is_prev_required()) {
                 impl::error_and_exit(
-                    "Positional '", impl::ArgPrinter::dump(arg),
+                    "Positional '", impl::ParamPrinter::dump(p),
                     "' cannot be required because '",
-                    impl::ArgPrinter::dump(args.back()),
+                    impl::ParamPrinter::dump(args.back()),
                     "' is optional for command '", this->name, "'");
             }
 
@@ -456,8 +455,8 @@ struct Cmd {
     }
 
     std::string_view name;
-    std::vector<ArgType> args{};
-    std::vector<Arg> options{};
+    std::vector<ParamType> args{};
+    std::vector<Param> options{};
     Entry entry{nullptr};
     size_t mincount{0};
 };
@@ -514,12 +513,12 @@ inline void help() {
 
             for(auto& a : c.args) {
                 std::fputs(" ", stdout);
-                std::visit(ArgPrinter{}, a);
+                std::visit(ParamPrinter{}, a);
             }
 
             for(auto& a : c.options) {
                 std::fputs(" ", stdout);
-                ArgPrinter{}(a);
+                ParamPrinter{}(a);
             }
 
             std::fputs("\n", stdout);
@@ -528,7 +527,7 @@ inline void help() {
 
     std::fputs("\nOptions:\n", stdout);
 
-    for(const Option& o : Options::items) {
+    for(const Opt& o : Options::items) {
         std::fputs("  ", stdout);
         std::string s = o.to_short_string();
         std::fputs(s.data(), stdout);
@@ -553,10 +552,10 @@ inline void help() {
     }
 }
 
-template<typename... Args>
-[[noreturn]] inline void error_and_exit(Args&&... args) {
+template<typename... Ts>
+[[noreturn]] inline void error_and_exit(Ts&&... args) {
     std::fputs("ERROR: ", stdout);
-    impl::print(std::forward<Args>(args)...);
+    impl::print(std::forward<Ts>(args)...);
     std::fputs("\n", stdout);
 
     if(cl::help_on_exit)
@@ -575,37 +574,37 @@ template<typename... Args>
     std::exit(1);
 }
 
-inline Values init_value() {
-    Values values;
+inline Args init_value() {
+    Args values;
 
     for(impl::Cmd& c : Usage::items) {
         values.try_emplace(c.name, false);
 
-        for(ArgType& arg : c.args) {
+        for(ParamType& arg : c.args) {
             std::visit(
                 [&](auto& x) {
                     using T = std::decay_t<decltype(x)>;
 
-                    if constexpr(std::is_same_v<T, Arg>) {
+                    if constexpr(std::is_same_v<T, Param>) {
                         if(!x.option)
-                            values.try_emplace(x.val, Value{});
+                            values.try_emplace(x.val, Arg{});
                     }
                     else if constexpr(std::is_same_v<T, One>) {
                         for(std::string_view item : x.items)
                             values.try_emplace(item, false);
                     }
                     else
-                        static_assert(Value::always_false_v<T>);
+                        static_assert(Arg::always_false_v<T>);
                 },
                 arg);
         }
     }
 
-    for(impl::Option& opt : Options::items) {
-        if(opt.flag)
-            values.try_emplace(opt.name, Value{false});
+    for(impl::Opt& o : Options::items) {
+        if(o.flag)
+            values.try_emplace(o.name, Arg{false});
         else
-            values.try_emplace(opt.name, Value{});
+            values.try_emplace(o.name, Arg{});
     }
 
     return values;
@@ -613,23 +612,23 @@ inline Values init_value() {
 
 } // namespace impl
 
-template<typename... Args>
-impl::One one(Args&&... args) {
-    return impl::One{std::forward<Args>(args)...};
+template<typename... Ts>
+impl::One one(Ts&&... args) {
+    return impl::One{std::forward<Ts>(args)...};
 }
 
-template<typename... Args>
-impl::Cmd cmd(std::string_view c, Args&&... args) {
+template<typename... Ts>
+impl::Cmd cmd(std::string_view c, Ts&&... args) {
     return (impl::Cmd{c}, ..., args);
 }
 
-inline impl::Option opt(std::string_view s, impl::OptArg l,
-                        std::string_view d = {}) {
-    return impl::Option{s, l, d};
+inline impl::Opt opt(std::string_view s, impl::OptParam l,
+                     std::string_view d = {}) {
+    return impl::Opt{s, l, d};
 }
 
-inline impl::Option opt(impl::OptArg l, std::string_view d = {}) {
-    return impl::Option{{}, l, d};
+inline impl::Opt opt(impl::OptParam l, std::string_view d = {}) {
+    return impl::Opt{{}, l, d};
 }
 
 inline void set_name(std::string_view n) { impl::info.name = n; }
@@ -639,7 +638,7 @@ inline void set_program(std::string_view n) { impl::info.program = n; }
 
 inline void help() { impl::help(); }
 
-inline Values parse(int argc, char** argv) {
+inline Args parse(int argc, char** argv) {
     if(argc <= 1) {
         if(!Usage::items.empty())
             impl::help_and_exit();
@@ -698,7 +697,7 @@ inline Values parse(int argc, char** argv) {
         i++;
     }
 
-    Values v = impl::init_value();
+    Args v = impl::init_value();
 
     for(impl::Cmd& cmd : Usage::items) {
         if(cmd.name != c)
@@ -706,14 +705,14 @@ inline Values parse(int argc, char** argv) {
         if(margs.size() > cmd.args.size())
             impl::help_and_exit();
 
-        v[cmd.name] = Value{true};
+        v[cmd.name] = Arg{true};
 
         for(size_t i = margs.size(); i < cmd.args.size(); i++) {
             std::visit(
                 [](auto& x) {
                     if(x.required) {
                         impl::error_and_exit("Missing required argument '",
-                                             impl::ArgPrinter::dump(x), "'");
+                                             impl::ParamPrinter::dump(x), "'");
                     }
                 },
                 cmd.args[i]);
@@ -733,28 +732,28 @@ inline Values parse(int argc, char** argv) {
                         }
 
                         for(std::string_view one : x.items)
-                            v[one] = Value{margs[i] == one};
+                            v[one] = Arg{margs[i] == one};
                     }
-                    else if constexpr(std::is_same_v<T, impl::Arg>) {
+                    else if constexpr(std::is_same_v<T, impl::Param>) {
                         if(!margs[i].empty())
-                            v[x.val] = Value{margs[i]};
+                            v[x.val] = Arg{margs[i]};
                     }
                     else
-                        static_assert(Value::always_false_v<T>);
+                        static_assert(Arg::always_false_v<T>);
                 },
                 cmd.args[i]);
         }
 
-        for(const impl::Arg& arg : cmd.options) {
+        for(const impl::Param& arg : cmd.options) {
             auto o = Options::get_option(arg.val);
             if(!o)
                 impl::abort();
 
             if(mopts.count(o->name)) {
                 if(o->flag)
-                    v[o->name] = Value{true};
+                    v[o->name] = Arg{true};
                 else
-                    v[o->name] = Value{mopts[arg.val]};
+                    v[o->name] = Arg{mopts[arg.val]};
             }
             else if(arg.required)
                 impl::error_and_exit("Missing required option '", o->name, "'");
