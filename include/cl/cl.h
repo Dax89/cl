@@ -464,11 +464,22 @@ struct Cmd {
 } // namespace impl
 
 struct Usage {
-    Usage(std::initializer_list<impl::Cmd> cmds) { Usage::items = cmds; }
+    Usage(std::initializer_list<impl::Cmd> cmds) {
+        for(const impl::Cmd& c : cmds) {
+            if(Usage::commands.count(c.name))
+                impl::print_and_exit("Duplicate command '", c.name, "'");
+
+            Usage::items.push_back(c);
+            Usage::commands.insert(c.name);
+        }
+    }
+
     static std::vector<impl::Cmd> items;
+    static std::unordered_set<std::string_view> commands;
 };
 
 inline std::vector<impl::Cmd> Usage::items;
+inline std::unordered_set<std::string_view> Usage::commands;
 
 namespace impl {
 inline void version() {
