@@ -1,3 +1,15 @@
+/*
+ *  _____  _
+ * /  __ \| |      Easy command line parsing with EDSL
+ * | /  \/| |      Version: 1.0.0
+ * | |    | |
+ * | \__/\| |____  https://github.com/Dax89/cl
+ *  \____/\_____/
+ *
+ * License: MIT
+ * https://github.com/Dax89/cl/blob/master/LICENSE
+ */
+
 #pragma once
 
 #include <array>
