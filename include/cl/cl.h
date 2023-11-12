@@ -19,6 +19,8 @@ inline bool help_on_exit = true;
 
 namespace impl {
 
+constexpr std::string_view PROGRAM_DEFAULT = "program";
+
 inline std::string_view strip_dash(std::string_view v) {
     for(size_t i = 0; !v.empty() && i < 2; i++) {
         if(v.front() != '-')
@@ -147,7 +149,7 @@ struct Info {
     std::string_view name;
     std::string_view description;
     std::string_view version;
-    std::string_view program{"program"};
+    std::string_view program{PROGRAM_DEFAULT};
 
     [[nodiscard]] bool has_header() const {
         return !name.empty() || !version.empty() || !description.empty();
@@ -509,32 +511,36 @@ inline void help() {
     if(info.has_header())
         std::fputs("\n", stdout);
 
-    if(!Usage::items.empty()) {
-        std::fputs("Usage:\n", stdout);
+    std::fputs("Usage:\n", stdout);
 
-        for(impl::Cmd& c : Usage::items) {
-            std::fputs("  ", stdout);
+    for(impl::Cmd& c : Usage::items) {
+        std::fputs("  ", stdout);
+        std::fputs(info.program.data(), stdout);
+        std::fputs(" ", stdout);
+        std::fputs(c.name.data(), stdout);
 
-            if(!info.program.empty()) {
-                std::fputs(info.program.data(), stdout);
-                std::fputs(" ", stdout);
-            }
-
-            std::fputs(c.name.data(), stdout);
-
-            for(auto& a : c.args) {
-                std::fputs(" ", stdout);
-                std::visit(ParamPrinter{}, a);
-            }
-
-            for(auto& a : c.options) {
-                std::fputs(" ", stdout);
-                ParamPrinter{}(a);
-            }
-
-            std::fputs("\n", stdout);
+        for(auto& a : c.args) {
+            std::fputs(" ", stdout);
+            std::visit(ParamPrinter{}, a);
         }
+
+        for(auto& a : c.options) {
+            std::fputs(" ", stdout);
+            ParamPrinter{}(a);
+        }
+
+        std::fputs("\n", stdout);
     }
+
+    std::fputs("  ", stdout);
+    std::fputs(info.program.data(), stdout);
+    std::fputs(" ", stdout);
+    std::fputs("--version\n", stdout);
+
+    std::fputs("  ", stdout);
+    std::fputs(info.program.data(), stdout);
+    std::fputs(" ", stdout);
+    std::fputs("--help\n", stdout);
 
     std::fputs("\nOptions:\n", stdout);
 
@@ -642,7 +648,10 @@ inline impl::Opt opt(impl::OptParam l, std::string_view d = {}) {
     return impl::Opt{{}, l, d};
 }
 
-inline void set_name(std::string_view n) { impl::info.name = n; }
+inline void set_name(std::string_view n) {
+    impl::info.name = n.empty() ? impl::PROGRAM_DEFAULT : n;
+}
+
 inline void set_version(std::string_view v) { impl::info.version = v; }
 inline void set_description(std::string_view v) { impl::info.description = v; }
 inline void set_program(std::string_view n) { impl::info.program = n; }

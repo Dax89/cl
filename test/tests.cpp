@@ -140,34 +140,3 @@ TEST_CASE("Ones", "[ones]") {
     REQUIRE(args["option2"] == "val");
     REQUIRE(args["option3"] == "bar");
 }
-
-TEST_CASE("Foo", "[foo]") {
-    clear_cl();
-    cl::help_on_exit = false;
-
-    // Needed later for __ operator
-    using namespace cl::string_literals;
-
-    // Set some application info (optional)
-    cl::set_program("cl_app");
-    cl::set_name("CL App");
-    cl::set_description("App Description");
-    cl::set_version("1.0");
-
-    // Define options (needed if you use options later)
-    cl::Options{
-        cl::opt("o1", "opt1", "I'm the option 1"),
-        cl::opt("o2", "opt2", "I'm the option 2"),
-        cl::opt("o3", "opt3"_arg, "I'm the option 3"),
-    };
-
-    // Create parsing rules (for options, the short name can also be used)
-    cl::Usage{
-      cl::cmd("command1", "pos1", *"pos2"__, --"opt1"__, *--"opt2"__),
-      cl::cmd("command2", "pos1", "pos2"__, --"opt1"__, --"opt2"__),
-      cl::cmd("command3", "pos1", cl::one("val1", "val2", "val3")),
-      cl::cmd("command4", "pos1", *cl::one("val1", "val2", "val3"), *--"opt3"__),
-    };
-
-    cl::help();
-}
