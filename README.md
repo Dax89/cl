@@ -83,7 +83,7 @@ Case 1
 -------
 cl_app called as `cl_app command4 val1 val2`
 
-```python
+```ruby
 opt3 = null
 command1 = false
 pos1 = "arg1"    # The 1st positional argument for this command
@@ -104,7 +104,7 @@ Case 2
 -------
 cl_app called as `cl_app command2 arg1 arg2 -o1 --opt2`
 
-```python
+```ruby
 opt3 = null
 command1 = false
 pos1 = "arg1"      # The 1st positional argument for this command
