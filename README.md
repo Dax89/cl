@@ -123,7 +123,7 @@ opt1 = true       # opt1 is set
 
 Extract argument information (C++ code)
 ----
-In C++ the code lookes like this:
+In C++ the code looks like this:
 
 ```cpp
 #include <iostream>
@@ -132,7 +132,7 @@ In C++ the code lookes like this:
 int main(int argc, char** argv[]) {
     //... create rules & options
 
-    cl::Args args = cl::parse(argc, argv)
+    cl::Args args = cl::parse(argc, argv);
 
     if(args["command2"]) {
         std::cout << "Called command2" << std::endl;
