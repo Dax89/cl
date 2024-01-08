@@ -1,7 +1,7 @@
 /*
  *  _____  _
  * /  __ \| |      Easy command line parsing with EDSL
- * | /  \/| |      Version: 1.0.0
+ * | /  \/| |      Version: 1.1.0
  * | |    | |
  * | \__/\| |____  https://github.com/Dax89/cl
  *  \____/\_____/
@@ -356,18 +356,6 @@ inline int Options::maxlength;
 using Args = std::unordered_map<std::string_view, Arg>;
 using Entry = std::function<void(const Args&)>;
 
-namespace string_literals {
-
-inline impl::Param operator""__(const char* arg, std::size_t len) {
-    return impl::Param{std::string_view{arg, len}};
-}
-
-inline impl::OptParam operator""_arg(const char* arg, std::size_t len) {
-    return impl::OptParam{std::string_view{arg, len}, false};
-}
-
-} // namespace string_literals
-
 namespace impl {
 
 struct ParamPrinter {
@@ -468,7 +456,11 @@ struct Cmd {
                           args.back());
     }
 
+    explicit Cmd(std::string_view n): name{n} {}
+    explicit Cmd(std::string_view n, bool a): name{n}, any{a} {}
+
     std::string_view name;
+    bool any{false};
     std::vector<ParamType> args{};
     std::vector<Param> options{};
     Entry entry{nullptr};
@@ -529,7 +521,14 @@ inline void help() {
         std::fputs("  ", stdout);
         std::fputs(info.program.data(), stdout);
         std::fputs(" ", stdout);
+
+        if(c.any)
+            std::fputs("{", stdout);
+
         std::fputs(c.name.data(), stdout);
+
+        if(c.any)
+            std::fputs("}", stdout);
 
         for(auto& a : c.args) {
             std::fputs(" ", stdout);
@@ -647,6 +646,11 @@ impl::One one(Ts&&... args) {
 }
 
 template<typename... Ts>
+impl::Cmd cmd(impl::Cmd&& c, Ts&&... args) {
+    return (c, ..., args);
+}
+
+template<typename... Ts>
 impl::Cmd cmd(std::string_view c, Ts&&... args) {
     return (impl::Cmd{c}, ..., args);
 }
@@ -729,27 +733,46 @@ inline Args parse(int argc, char** argv) {
         i++;
     }
 
+    // Keep an original copy for rollback
+    std::vector<std::string_view> basemargs = margs;
     Args v = impl::init_value();
 
     for(impl::Cmd& cmd : Usage::items) {
-        if(cmd.name != c)
+        if(!cmd.any && cmd.name != c)
             continue;
+
         if(margs.size() > cmd.args.size())
             impl::help_and_exit();
 
-        v[cmd.name] = Arg{true};
+        v[cmd.name] = Arg{c};
 
-        for(size_t i = margs.size(); i < cmd.args.size(); i++) {
+        bool skip = false;
+
+        for(size_t i = margs.size(); !skip && i < cmd.args.size(); i++) {
             std::visit(
-                [](auto& x) {
+                [&](auto& x) {
                     if(x.required) {
-                        impl::error_and_exit("Missing required argument '",
-                                             impl::ParamPrinter::dump(x), "'");
+                        if(cmd.any)
+                            skip = true;
+                        else
+                            impl::error_and_exit("Missing required argument '",
+                                                 impl::ParamPrinter::dump(x),
+                                                 "'");
                     }
                 },
                 cmd.args[i]);
 
             margs.emplace_back(); // Fill remaining slots
+        }
+
+        /*
+         * Maybe an any-type command with invalid arguments has been found,
+         * rollback changes and keep finding for a better-fit one.
+         */
+        if(skip) {
+            margs = basemargs;
+            v = impl::init_value();
+            continue;
         }
 
         for(size_t i = 0; i < cmd.args.size(); i++) {
@@ -798,5 +821,21 @@ inline Args parse(int argc, char** argv) {
 
     impl::print_and_exit("Unknown command '", c, "'");
 }
+
+namespace string_literals {
+
+inline impl::Cmd operator""_a(const char* arg, std::size_t len) {
+    return impl::Cmd{std::string_view{arg, len}, true};
+}
+
+inline impl::Param operator""_p(const char* arg, std::size_t len) {
+    return impl::Param{std::string_view{arg, len}};
+}
+
+inline impl::OptParam operator""_o(const char* arg, std::size_t len) {
+    return impl::OptParam{std::string_view{arg, len}, false};
+}
+
+} // namespace string_literals
 
 } // namespace cl
